@@ -1,0 +1,71 @@
+cmake_minimum_required(VERSION 3.11)
+set(PROJECT_NAME rg-playground)
+project(${PROJECT_NAME})
+
+function(watch)
+    set_property(
+            DIRECTORY
+            APPEND
+            PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARGV}
+    )
+endfunction()
+
+set(CMAKE_POLICY_DEFAULT_CMP0012 NEW)
+set(CMAKE_CXX_STANDARD 14)
+
+list(APPEND CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -O3")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+
+file(GLOB SOURCES "src/**.cpp" "src/**.c" src/example1.cpp)
+file(GLOB HEADERS "include/**.h" "include/**.hpp")
+
+find_package(OpenGL REQUIRED)
+find_package(ASSIMP REQUIRED)
+
+add_subdirectory(libs/glfw)
+add_subdirectory(libs/glad)
+add_subdirectory(libs/imgui)
+add_subdirectory(libs/stb)
+add_subdirectory(libs/spdlog)
+add_subdirectory(libs/glm)
+
+add_definitions(${OPENGL_DEFINITIONS})
+
+set_source_files_properties(libs/stb_image.cpp include/stb_image.h
+        PROPERTIES
+        COMPILE_FLAGS
+        "-Wno-shift-negative-value -Wno-implicit-fallthrough")
+
+set(LIBS glfw glad glm spdlog stb OpenGL::GL X11 Xrandr Xinerama Xi Xxf86vm Xcursor dl pthread freetype ${ASSIMP_LIBRARIES} imgui)
+
+include_directories(${CMAKE_BINARY_DIR}/configuration)
+
+include_directories(include/)
+file(GLOB SOURCES "src/**.cpp")
+
+
+set(RESOURCES_DIR "${CMAKE_SOURCE_DIR}/resources")
+set(RESOURCES_LINK "${CMAKE_BINARY_DIR}/resources")
+
+foreach(SOURCE_FILE ${SOURCES})
+    get_filename_component(EXECUTABLE_NAME ${SOURCE_FILE} NAME_WE)
+    add_executable(${EXECUTABLE_NAME} ${SOURCE_FILE})
+    target_link_libraries(${EXECUTABLE_NAME} ${LIBS})
+    set_target_properties(${EXECUTABLE_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+    add_custom_command(
+        TARGET ${EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+            "${RESOURCES_DIR}"
+            "${RESOURCES_LINK}"
+    )
+endforeach()
+
+file(GLOB SHADERS "shaders/*.vs"
+        "shaders/*.fs")
+
+foreach(SHADER ${SHADERS})
+    # file(COPY ${SHADER} DESTINATION ${CMAKE_SOURCE_DIR}/bin/${PROJECT_NAME}/shaders)
+    watch(${SHADER})
+endforeach()
+
